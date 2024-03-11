@@ -1,0 +1,7 @@
+YTDownloader:
+  default_path: C:\Users\DXD\Desktop
+  default_image: \default.png
+  bitrate: 192k
+  sample_rate: 44100
+  channels: 2
+  ffmpeg: C:\Users\DXD\ffmpeg-6.1.1\bin\ffmpeg.exe
