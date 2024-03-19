@@ -1,6 +1,6 @@
 # YTDownloader Application Overview
 
-YTDownloader is a Tkinter-based application comprising three tabs, each serving distinct functions:
+YTDownloader is a **Tkinter**-based application comprising three tabs, each serving distinct functions:
 
 ## Downloader Tab
 The 'Downloader' tab enables users to download both mp3 and mp4 files from YouTube.
