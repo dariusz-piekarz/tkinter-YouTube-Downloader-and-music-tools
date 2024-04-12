@@ -15,7 +15,8 @@ The 'Shrinker' tab facilitates the reduction of the length of mp3 files.
 ## Fields Editor Tab
 The 'Fields Editor' tab empowers users to edit metadata such as title, author, album name, album cover, track number, and genre.
 
-![meta](https://github.com/dariusz-piekarz/tkinter-YouTube-Downloader-and-music-tools/assets/162720843/a75c73bf-5c26-4935-9ea2-166a9b0d5ad4)
+![meta](https://github.com/dariusz-piekarz/tkinter-YouTube-Downloader-and-music-tools/assets/162720843/fc7eefa2-1625-44bc-9611-79be90758537)
+
 
 
 ### WARNINGS:
