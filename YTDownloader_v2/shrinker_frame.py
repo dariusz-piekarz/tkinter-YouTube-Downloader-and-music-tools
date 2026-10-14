@@ -1,105 +1,93 @@
-from tkinter import Frame, Label, Button, Entry, END
-from tkinter.filedialog import asksaveasfilename, askopenfilename
+from pathlib import Path
+from threading import Thread
+from tkinter import Button, Entry, Frame, Label, END, messagebox
+from tkinter.filedialog import askopenfilename, asksaveasfilename
+
 from Config import Config
-from shrink_core import Segment
+from shrink_core import media_duration, parse_time, trim_media
 
 
 class Shrinker(Frame):
-    font = 'Arial 12'
-    min = [0, 0, 0]
-    max = [0, 0, 0]
-    entry_min_min = str()
-    entry_min_sec = str()
-    entry_min_msec = str()
-    entry_max_min = str()
-    entry_max_sec = str()
-    entry_max_msec = str()
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.config_data = Config()
+        self.source = None
+        self.duration = 0.0
+        self.entries = []
+        self.columnconfigure(1, weight=1)
+        self.source_label = Label(self, text="No file selected")
+        self.source_label.grid(row=0, column=0, columnspan=7, pady=12)
+        Button(self, text="Open MP3 / MP4", command=self.open_file).grid(row=1, column=0, padx=12)
+        for row, label in ((2, "Start"), (3, "End")):
+            Label(self, text=label).grid(row=row, column=0, pady=8)
+            group = []
+            for index, width in enumerate((4, 3, 4)):
+                entry = Entry(self, width=width)
+                entry.grid(row=row, column=index * 2 + 1)
+                entry.insert(0, "0")
+                group.append(entry)
+                if index < 2:
+                    Label(self, text=":" if index == 0 else ".").grid(row=row, column=index * 2 + 2)
+            self.entries.append(group)
+        self.extract_button = Button(self, text="Extract", command=self.extract)
+        self.extract_button.grid(row=4, column=0, columnspan=7, pady=16)
 
-    config = Config(r"config.yaml")
-
-    def __init__(self, *args, **kwars):
-        super().__init__(*args, **kwars)
-        self.label()
-        self.entries()
-        self.buttons()
-
-    def label(self):
-        self.space = Label(self, text="     ", font=self.font)
-        self.space.grid(row=1, column=1, sticky='ew')
-        self.label1 = Label(self, text="1. ", font=self.font)
-        self.label1.grid(row=2, column=1, sticky='ew')
-        self.label2 = Label(self, text="2. ", font=self.font)
-        self.label2.grid(row=3, column=1, sticky='ew')
-        self.label3 = Label(self, text="3. ", font=self.font)
-        self.label3.grid(row=4, column=1, sticky='ew')
-        self.label4 = Label(self, text="Set length", font=self.font)
-        self.label4.grid(row=3, column=2, sticky='ew')
-        self.label5 = Label(self, text="-", font=self.font)
-        self.label5.grid(row=3, column=10, sticky='ew')
-        self.label6 = Label(self, text=":", font=self.font)
-        self.label6.grid(row=3, column=6, sticky='ew')
-        self.label7 = Label(self, text=":", font=self.font)
-        self.label7.grid(row=3, column=12, sticky='ew')
-        self.label8 = Label(self, text=":", font=self.font)
-        self.label8.grid(row=3, column=8, sticky='ew')
-        self.label9 = Label(self, text=":", font=self.font)
-        self.label9.grid(row=3, column=14, sticky='ew')
-
-    def entries(self):
-        self.entry_min_min = Entry(self, self.entry_min_min, font=self.font, width=2)
-        self.entry_min_sec = Entry(self, self.entry_min_sec, font=self.font, width=2)
-        self.entry_min_msec = Entry(self, self.entry_min_msec, font=self.font, width=2)
-        self.entry_max_min = Entry(self, self.entry_max_min, font=self.font, width=2)
-        self.entry_max_sec = Entry(self, self.entry_max_sec, font=self.font, width=2)
-        self.entry_max_msec = Entry(self, self.entry_max_sec, font=self.font, width=2)
-        self.entry_min_min.grid(row=3, column=5, sticky='w')
-        self.entry_min_sec.grid(row=3, column=7, sticky='e')
-        self.entry_min_msec.grid(row=3, column=9, sticky='e')
-        self.entry_max_min.grid(row=3, column=11, sticky='w')
-        self.entry_max_sec.grid(row=3, column=13, sticky='e')
-        self.entry_max_msec.grid(row=3, column=15, sticky='e')
-
-    def buttons(self):
-        self.open = Button(self, text="Open", command=self.open, width=12)
-        self.open.grid(row=2, column=2, columnspan=1, sticky="e")
-        self.extract = Button(self, text="Extract", command=self.extract, width=12)
-        self.extract.grid(row=4, column=2, columnspan=1, sticky="e")
-
-    def open(self):
-        a = askopenfilename(filetypes=(("MPEG Layer 3", "*.mp3"), ("MP4", "*.mp4"), ("All Files", "*.*")),
-                               defaultextension='mp3', initialdir=self.config.YTDownloader.default_path)
-        self.ext = a.split(".")[-1]
-        self.file = Segment(a, ext=self.ext)
-        length = self.file.sound.duration
-        y = length // 60
-        z = length - y * 60
-
-        self.max = [int(length // 60), int(z), int((z - int(z)) * 60)]
-
-        self.entry_min_min.delete(0, END)
-        self.entry_min_sec.delete(0, END)
-        self.entry_min_msec.delete(0, END)
-        self.entry_max_min.delete(0, END)
-        self.entry_max_sec.delete(0, END)
-        self.entry_max_msec.delete(0, END)
-
-        self.entry_min_min.insert(0, 0)
-        self.entry_min_sec.insert(0, 0)
-        self.entry_min_msec.insert(0, 0)
-        self.entry_max_min.insert(0, self.max[0])
-        self.entry_max_sec.insert(0, self.max[1])
-        self.entry_max_msec.insert(0, self.max[2])
-
-        self.file.set_min_max(self.min, self.max)
-        # self.file.sound.preview()
+    def open_file(self):
+        filename = askopenfilename(initialdir=self.config_data.default_path, filetypes=[("Media", "*.mp3 *.mp4")])
+        if not filename:
+            return
+        try:
+            duration = media_duration(filename, self.config_data.ffmpeg)
+        except Exception as error:
+            messagebox.showerror("Open failed", str(error))
+            return
+        self.source = Path(filename)
+        self.duration = duration
+        self.source_label.config(text=self.source.name)
+        minutes = int(duration // 60)
+        seconds = int(duration % 60)
+        milliseconds = int(round((duration - int(duration)) * 1000))
+        if milliseconds == 1000:
+            seconds += 1
+            milliseconds = 0
+        if seconds == 60:
+            minutes += 1
+            seconds = 0
+        for entry, value in zip(self.entries[1], (minutes, seconds, milliseconds)):
+            entry.delete(0, END)
+            entry.insert(0, str(value))
 
     def extract(self):
-        self.file.set_min_max([self.entry_min_min.get(), self.entry_min_sec.get(), self.entry_min_msec.get()],
-                              [self.entry_max_min.get(), self.entry_max_sec.get(), self.entry_max_msec.get()])
-        extract = self.file.extract()
-        a = asksaveasfilename(filetypes=(("MPEG Layer 3", "*.mp3"), ("MP4", "*.mp4"), ("All Files", "*.*")),
-                               defaultextension=self.ext, initialdir=self.config.YTDownloader.default_path)
-        if self.ext == 'mp3':
-            extract.write_audiofile(a)
-        elif self.ext == 'mp4':
-            extract.write_videofile(a)
+        if self.source is None:
+            messagebox.showerror("Extract", "Open a file first.")
+            return
+        try:
+            start, end = (parse_time(*(entry.get() for entry in group)) for group in self.entries)
+            if end <= start or end > self.duration + 0.01:
+                raise ValueError("Choose an end time after the start and within the file.")
+        except ValueError as error:
+            messagebox.showerror("Invalid time", str(error))
+            return
+        suffix = self.source.suffix.lower()
+        filename = asksaveasfilename(initialdir=self.config_data.default_path, defaultextension=suffix,
+                                     filetypes=[(suffix.upper(), f"*{suffix}")])
+        if not filename:
+            return
+        self.extract_button.config(state="disabled")
+
+        def worker():
+            try:
+                trim_media(self.source, filename, start, end, self.config_data.ffmpeg)
+            except Exception as error:
+                self.after(0, lambda message=str(error): self.finish(message))
+            else:
+                self.after(0, lambda: self.finish(None))
+
+        Thread(target=worker, daemon=True).start()
+
+    def finish(self, error):
+        self.extract_button.config(state="normal")
+        if error:
+            messagebox.showerror("Extract failed", error)
+        else:
+            messagebox.showinfo("Extract", "File saved successfully.")

@@ -1,22 +1,20 @@
-from codecs import open
+from pathlib import Path
+import shutil
+
 import yaml
-import json
 
 
-class DataTree:
-    def __init__(self, variables_dict):
-        for node, branch in variables_dict.items():
-            if isinstance(branch, dict):
-                setattr(self, node, DataTree(branch))
-            else:
-                setattr(self, node, branch)
+APP_DIR = Path(__file__).resolve().parent
 
 
-class Config(DataTree):
-    def __init__(self, path_to_config):
-        variable_dict = dict()
-        if path_to_config[-4:] == 'yaml':
-            variable_dict = yaml.safe_load(open(path_to_config))
-        elif path_to_config[-4:] == 'JSON':
-            variable_dict = json.load(open(path_to_config))
-        super().__init__(variable_dict)
+class Config:
+    def __init__(self, path=APP_DIR / "config.yaml"):
+        with open(path, encoding="utf-8") as config_file:
+            settings = (yaml.safe_load(config_file) or {}).get("YTDownloader", {})
+        self.default_path = Path(settings.get("default_path") or Path.home() / "Downloads").expanduser()
+        if not self.default_path.is_dir():
+            self.default_path = Path.home()
+        self.default_image = APP_DIR / settings.get("default_image", "default.png")
+        self.bitrate = str(settings.get("bitrate", "192k"))
+        configured_ffmpeg = str(settings.get("ffmpeg") or "ffmpeg")
+        self.ffmpeg = shutil.which(configured_ffmpeg) or configured_ffmpeg

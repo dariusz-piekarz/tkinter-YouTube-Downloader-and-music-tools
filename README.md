@@ -1,25 +1,36 @@
-# YTDownloader Application Overview
+# YouTube Downloader and Music Tools
 
-YTDownloader is a `Tkinter`-based application comprising three tabs, each serving distinct functions:
+A desktop Tkinter app with three tools: download YouTube videos as MP3 or MP4, trim MP3/MP4 files, and edit MP3 metadata and cover art.
 
-## Downloader Tab
-The 'Downloader' tab enables users to download both mp3 and mp4 files from YouTube.
+## Requirements
 
-![downloader](https://github.com/dariusz-piekarz/tkinter-YouTube-Downloader-and-music-tools/assets/162720843/ad00a893-41d7-456e-b064-f932de609dec)
+- Windows, Python 3.14.8, and [uv](https://docs.astral.sh/uv/)
+- FFmpeg and FFprobe available in `PATH`, or an absolute FFmpeg path in `YTDownloader_v2/config.yaml`
 
-## Shrinker Tab
-The 'Shrinker' tab facilitates the reduction of the length of mp3 files.
+## Run
 
-![shrink](https://github.com/dariusz-piekarz/tkinter-YouTube-Downloader-and-music-tools/assets/162720843/b8a5af88-c4d5-44bd-ad06-2eb048120d76)
+From the repository root:
 
-## Fields Editor Tab
-The 'Fields Editor' tab empowers users to edit metadata such as title, author, album name, album cover, track number, and genre.
+```powershell
+uv sync
+uv run python YTDownloader_v2/main.py
+```
 
-![meta](https://github.com/dariusz-piekarz/tkinter-YouTube-Downloader-and-music-tools/assets/162720843/fc7eefa2-1625-44bc-9611-79be90758537)
+If `uv` is installed but not in `PATH`, use `$env:USERPROFILE\.local\bin\uv.exe` instead.
 
+The settings file is `YTDownloader_v2/config.yaml`. Set the download directory, default image, MP3 bitrate, or FFmpeg executable there. The default download directory is `~/Downloads`; if it does not exist, the app uses your home directory.
 
+## Test
 
-### WARNINGS:
-- Proper functionality of the project requires specifying the path to ffmpeg in the 'config.yaml' file. To correctly set up `ffmpeg`, please refer to the following instructions: [How to Install FFmpeg on Windows](https://www.wikihow.com/Install-FFmpeg-on-Windows).
-- Additionally, in the 'config.yaml' file, please specify a default path where downloaded files are stored.
-- In case of issues related to `pytube`, it is recommended to reinstall it from the Anaconda prompt using the command: `pip install git+https://github.com/nficano/pytube.git`.
+```powershell
+uv run python -m unittest discover -s tests -v
+```
+
+The automated tests cover configuration loading, time validation, metadata editing, and the download options. A live YouTube download needs network access and may require updating `yt-dlp` when YouTube changes.
+
+## Possible next steps
+
+- Add a progress bar and a cancel button for downloads and conversions.
+- Support batch downloads and playlist selection.
+- Add waveform preview for choosing trim points.
+- Allow metadata editing for MP4/M4A as well as MP3.
