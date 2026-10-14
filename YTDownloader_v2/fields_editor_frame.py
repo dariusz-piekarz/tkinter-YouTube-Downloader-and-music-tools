@@ -9,30 +9,50 @@ from menu import RightClicker
 
 
 class FieldsEditor(Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, language):
         super().__init__(parent)
+        self.language = language
         self.config_data = Config()
         self.file = None
         self.cover_image = None
         self.fields = {}
+        self.field_labels = {}
         self.columnconfigure(1, weight=1)
-        self.file_label = Label(self, text="No MP3 selected")
+        self.file_label = Label(self)
         self.file_label.grid(row=0, column=0, columnspan=2, pady=8)
-        Button(self, text="Open MP3", command=self.open_file).grid(row=0, column=2, padx=10)
+        self.open_button = Button(self, command=self.open_file)
+        self.open_button.grid(row=0, column=2, padx=10)
         for row, name in enumerate(("title", "artist", "album", "genre", "track"), start=1):
-            Label(self, text=name.title()).grid(row=row, column=0, padx=10)
+            label = Label(self)
+            label.grid(row=row, column=0, padx=10)
+            self.field_labels[name] = label
             entry = Entry(self, width=55)
             entry.grid(row=row, column=1, sticky="ew", pady=3)
-            entry.bind("<Button-3>", RightClicker)
+            entry.bind("<Button-3>", lambda event: RightClicker(event, self.language))
             self.fields[name] = entry
         self.cover_label = Label(self, cursor="hand2")
         self.cover_label.grid(row=6, column=1, pady=8)
         self.cover_label.bind("<Button-1>", lambda event: self.open_image())
         self.cover_label.bind("<Button-3>", self.paste_image)
-        Button(self, text="Select cover", command=self.open_image).grid(row=6, column=2)
-        Button(self, text="Clear fields", command=self.clear).grid(row=7, column=1, sticky="w")
-        Button(self, text="Save", command=self.save_file).grid(row=7, column=1, sticky="e")
+        self.cover_button = Button(self, command=self.open_image)
+        self.cover_button.grid(row=6, column=2)
+        self.clear_button = Button(self, command=self.clear)
+        self.clear_button.grid(row=7, column=1, sticky="w")
+        self.save_button = Button(self, command=self.save_file)
+        self.save_button.grid(row=7, column=1, sticky="e")
         self.show_cover(None)
+        self.set_language()
+
+    def set_language(self):
+        t = self.language.text
+        if self.file is None:
+            self.file_label.config(text=t("no_mp3"))
+        self.open_button.config(text=t("open_mp3"))
+        for name, label in self.field_labels.items():
+            label.config(text=t(name))
+        self.cover_button.config(text=t("select_cover"))
+        self.clear_button.config(text=t("clear_fields"))
+        self.save_button.config(text=t("save"))
 
     def show_cover(self, image):
         display = image if image is not None else Image.open(self.config_data.default_image)
@@ -48,7 +68,7 @@ class FieldsEditor(Frame):
         try:
             metadata = load_metadata(filename)
         except Exception as error:
-            messagebox.showerror("Open failed", str(error))
+            messagebox.showerror(self.language.text("open_failed"), self.language.error(error))
             return
         self.file = filename
         self.file_label.config(text=filename)
@@ -60,14 +80,14 @@ class FieldsEditor(Frame):
 
     def open_image(self):
         filename = filedialog.askopenfilename(initialdir=self.config_data.default_path,
-                                               filetypes=[("Images", "*.jpg *.jpeg *.png")])
+                                               filetypes=[(self.language.text("images"), "*.jpg *.jpeg *.png")])
         if filename:
             try:
                 with Image.open(filename) as image:
                     self.cover_image = image.copy()
                 self.show_cover(self.cover_image)
             except Exception as error:
-                messagebox.showerror("Cover", str(error))
+                messagebox.showerror(self.language.text("cover"), self.language.error(error))
 
     def paste_image(self, event=None):
         image = ImageGrab.grabclipboard()
@@ -75,7 +95,7 @@ class FieldsEditor(Frame):
             self.cover_image = image.copy()
             self.show_cover(self.cover_image)
         else:
-            messagebox.showerror("Cover", "The clipboard does not contain an image.")
+            messagebox.showerror(self.language.text("cover"), self.language.text("clipboard_no_image"))
 
     def clear(self):
         for entry in self.fields.values():
@@ -85,12 +105,12 @@ class FieldsEditor(Frame):
 
     def save_file(self):
         if not self.file:
-            messagebox.showerror("Save", "Open an MP3 file first.")
+            messagebox.showerror(self.language.text("save"), self.language.text("open_mp3_first"))
             return
         try:
             edit_fields(self.file, cover_image=self.cover_image,
                         **{name: entry.get() for name, entry in self.fields.items()})
         except Exception as error:
-            messagebox.showerror("Save failed", str(error))
+            messagebox.showerror(self.language.text("save_failed"), self.language.error(error))
         else:
-            messagebox.showinfo("Save", "Metadata saved.")
+            messagebox.showinfo(self.language.text("save"), self.language.text("metadata_saved"))

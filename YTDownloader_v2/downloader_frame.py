@@ -10,36 +10,49 @@ from menu import RightClicker
 
 
 class Downloader(Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, language):
         super().__init__(parent)
+        self.language = language
         self.config_data = Config()
         self.columnconfigure(1, weight=1)
-        Label(self, text="YouTube downloader", font="Arial 12 bold").grid(row=0, column=0, columnspan=3, pady=20)
-        Label(self, text="Video URL").grid(row=1, column=0, padx=12)
+        self.title_label = Label(self, font="Arial 12 bold")
+        self.title_label.grid(row=0, column=0, columnspan=3, pady=20)
+        self.url_label = Label(self)
+        self.url_label.grid(row=1, column=0, padx=12)
         self.url = Entry(self, width=55)
         self.url.grid(row=1, column=1, sticky="ew")
-        self.url.bind("<Button-3>", RightClicker)
+        self.url.bind("<Button-3>", lambda event: RightClicker(event, self.language))
         self.media_format = StringVar(value="mp3")
         Combobox(self, textvariable=self.media_format, values=("mp3", "mp4"), state="readonly", width=5).grid(row=1, column=2, padx=12)
-        self.download_button = Button(self, text="Download", command=self.action)
+        self.download_button = Button(self, command=self.action)
         self.download_button.grid(row=2, column=1, pady=15)
+        self.downloading = False
+        self.set_language()
+
+    def set_language(self):
+        t = self.language.text
+        self.title_label.config(text=t("downloader_title"))
+        self.url_label.config(text=t("video_url"))
+        self.download_button.config(text=t("downloading" if self.downloading else "download"))
 
     def action(self):
         url = self.url.get().strip()
         if not url:
-            messagebox.showerror("Download", "Enter a video URL.")
+            messagebox.showerror(self.language.text("download"), self.language.text("enter_url"))
             return
         media_format = self.media_format.get()
         filename = asksaveasfilename(
             initialdir=self.config_data.default_path,
             defaultextension=f".{media_format}",
             filetypes=[(media_format.upper(), f"*.{media_format}")],
-            title="Save download",
+            title=self.language.text("save_download"),
         )
         if not filename:
             return
         destination = Path(filename)
-        self.download_button.config(state="disabled", text="Downloading...")
+        self.downloading = True
+        self.download_button.config(state="disabled")
+        self.set_language()
 
         def worker():
             try:
@@ -52,8 +65,10 @@ class Downloader(Frame):
         Thread(target=worker, daemon=True).start()
 
     def finish(self, error):
-        self.download_button.config(state="normal", text="Download")
+        self.downloading = False
+        self.download_button.config(state="normal")
+        self.set_language()
         if error:
-            messagebox.showerror("Download failed", error)
+            messagebox.showerror(self.language.text("download_failed"), self.language.error(error))
         else:
-            messagebox.showinfo("Download", "File saved successfully.")
+            messagebox.showinfo(self.language.text("download"), self.language.text("file_saved"))

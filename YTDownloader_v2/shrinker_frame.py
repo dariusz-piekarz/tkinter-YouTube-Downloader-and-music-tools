@@ -8,18 +8,23 @@ from shrink_core import media_duration, parse_time, trim_media
 
 
 class Shrinker(Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, language):
         super().__init__(parent)
+        self.language = language
         self.config_data = Config()
         self.source = None
         self.duration = 0.0
         self.entries = []
         self.columnconfigure(1, weight=1)
-        self.source_label = Label(self, text="No file selected")
+        self.source_label = Label(self)
         self.source_label.grid(row=0, column=0, columnspan=7, pady=12)
-        Button(self, text="Open MP3 / MP4", command=self.open_file).grid(row=1, column=0, padx=12)
-        for row, label in ((2, "Start"), (3, "End")):
-            Label(self, text=label).grid(row=row, column=0, pady=8)
+        self.open_button = Button(self, command=self.open_file)
+        self.open_button.grid(row=1, column=0, padx=12)
+        self.time_labels = []
+        for row in (2, 3):
+            label = Label(self)
+            label.grid(row=row, column=0, pady=8)
+            self.time_labels.append(label)
             group = []
             for index, width in enumerate((4, 3, 4)):
                 entry = Entry(self, width=width)
@@ -29,17 +34,28 @@ class Shrinker(Frame):
                 if index < 2:
                     Label(self, text=":" if index == 0 else ".").grid(row=row, column=index * 2 + 2)
             self.entries.append(group)
-        self.extract_button = Button(self, text="Extract", command=self.extract)
+        self.extract_button = Button(self, command=self.extract)
         self.extract_button.grid(row=4, column=0, columnspan=7, pady=16)
+        self.set_language()
+
+    def set_language(self):
+        t = self.language.text
+        if self.source is None:
+            self.source_label.config(text=t("no_file"))
+        self.open_button.config(text=t("open_media"))
+        for label, key in zip(self.time_labels, ("start", "end")):
+            label.config(text=t(key))
+        self.extract_button.config(text=t("extract"))
 
     def open_file(self):
-        filename = askopenfilename(initialdir=self.config_data.default_path, filetypes=[("Media", "*.mp3 *.mp4")])
+        filename = askopenfilename(initialdir=self.config_data.default_path,
+                                   filetypes=[(self.language.text("media_files"), "*.mp3 *.mp4")])
         if not filename:
             return
         try:
             duration = media_duration(filename, self.config_data.ffmpeg)
         except Exception as error:
-            messagebox.showerror("Open failed", str(error))
+            messagebox.showerror(self.language.text("open_failed"), self.language.error(error))
             return
         self.source = Path(filename)
         self.duration = duration
@@ -59,14 +75,14 @@ class Shrinker(Frame):
 
     def extract(self):
         if self.source is None:
-            messagebox.showerror("Extract", "Open a file first.")
+            messagebox.showerror(self.language.text("extract"), self.language.text("open_first"))
             return
         try:
             start, end = (parse_time(*(entry.get() for entry in group)) for group in self.entries)
             if end <= start or end > self.duration + 0.01:
                 raise ValueError("Choose an end time after the start and within the file.")
         except ValueError as error:
-            messagebox.showerror("Invalid time", str(error))
+            messagebox.showerror(self.language.text("invalid_time"), self.language.error(error))
             return
         suffix = self.source.suffix.lower()
         filename = asksaveasfilename(initialdir=self.config_data.default_path, defaultextension=suffix,
@@ -88,6 +104,6 @@ class Shrinker(Frame):
     def finish(self, error):
         self.extract_button.config(state="normal")
         if error:
-            messagebox.showerror("Extract failed", error)
+            messagebox.showerror(self.language.text("extract_failed"), self.language.error(error))
         else:
-            messagebox.showinfo("Extract", "File saved successfully.")
+            messagebox.showinfo(self.language.text("extract"), self.language.text("file_saved"))

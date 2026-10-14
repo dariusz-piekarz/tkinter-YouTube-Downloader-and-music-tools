@@ -2,6 +2,8 @@
 
 A desktop Tkinter app with three tools: download YouTube videos as MP3 or MP4, trim MP3/MP4 files, and edit MP3 metadata and cover art.
 
+Use the Language/Język menu to switch between Polish and English at any time. Polish is the initial language, and the choice is saved per Windows user.
+
 ## Requirements
 
 - Windows, Python 3.14.8, and [uv](https://docs.astral.sh/uv/)
