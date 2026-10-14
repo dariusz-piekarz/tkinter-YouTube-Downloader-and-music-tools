@@ -17,4 +17,8 @@ class Config:
         self.default_image = APP_DIR / settings.get("default_image", "default.png")
         self.bitrate = str(settings.get("bitrate", "192k"))
         configured_ffmpeg = str(settings.get("ffmpeg") or "ffmpeg")
-        self.ffmpeg = shutil.which(configured_ffmpeg) or configured_ffmpeg
+        bundled_ffmpeg = APP_DIR / "ffmpeg.exe"
+        if configured_ffmpeg.lower() in {"ffmpeg", "ffmpeg.exe"} and bundled_ffmpeg.is_file():
+            self.ffmpeg = str(bundled_ffmpeg)
+        else:
+            self.ffmpeg = shutil.which(configured_ffmpeg) or configured_ffmpeg

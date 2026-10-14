@@ -28,6 +28,19 @@ uv run python -m unittest discover -s tests -v
 
 The automated tests cover configuration loading, time validation, metadata editing, and the download options. A live YouTube download needs network access and may require updating `yt-dlp` when YouTube changes.
 
+## Build a Windows executable
+
+Run this in PowerShell from the repository root. FFmpeg and FFprobe must be installed on the build computer.
+
+```powershell
+$project = (Get-Location).Path
+$ffmpeg = (Get-Command ffmpeg).Source
+$ffprobe = (Get-Command ffprobe).Source
+uv run --with pyinstaller python -m PyInstaller --noconfirm --onedir --windowed --name YTDownloader --distpath "$env:USERPROFILE\Desktop" --add-data "${project}\YTDownloader_v2\config.yaml:." --add-data "${project}\YTDownloader_v2\default.png:." --add-binary "${ffmpeg}:." --add-binary "${ffprobe}:." --collect-submodules yt_dlp.extractor YTDownloader_v2/main.py
+```
+
+The output is `Desktop\YTDownloader\YTDownloader.exe`. Distribute the entire `YTDownloader` folder. It includes FFmpeg and FFprobe, so the target computer does not need Python, uv, or a separate FFmpeg installation. Edit `config.yaml` before building if you need different defaults.
+
 ## Possible next steps
 
 - Add a progress bar and a cancel button for downloads and conversions.

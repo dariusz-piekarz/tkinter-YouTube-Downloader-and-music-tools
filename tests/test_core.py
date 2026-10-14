@@ -20,6 +20,14 @@ class CoreTests(unittest.TestCase):
         if shutil.which("ffmpeg"):
             self.assertTrue(Path(Config().ffmpeg).is_file())
 
+    def test_bundled_ffmpeg_takes_priority(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            bundled = Path(directory) / "ffmpeg.exe"
+            bundled.touch()
+            with patch("Config.APP_DIR", Path(directory)):
+                self.assertEqual(Config().ffmpeg, str(bundled))
+
     def test_time_parsing(self):
         self.assertEqual(parse_time("1", "02", "125"), 62.125)
         for values in (("0", "60", "0"), ("0", "0", "1000"), ("", "0", "0")):
