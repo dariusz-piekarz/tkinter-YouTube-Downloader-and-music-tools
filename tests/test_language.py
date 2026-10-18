@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "YTDownloader_v2"))
@@ -58,5 +59,15 @@ class LanguageTests(unittest.TestCase):
                 downloader.reset_progress()
                 self.assertEqual(str(downloader.progress_bar.cget("mode")), "determinate")
                 self.assertEqual(downloader.progress_label.cget("text"), "")
+                app.show("shrink")
+                app.root.update()
+                shrinker = app.frames["shrink"]
+                minute, second, _ = shrinker.entries[0]
+                self.assertLess(second.winfo_rootx() - minute.winfo_rootx() - minute.winfo_width(), 20)
+                shrinker.duration = 120
+                shrinker.selection = (0, 120)
+                shrinker.start_drag(SimpleNamespace(x=shrinker.waveform_canvas.winfo_width() // 4))
+                shrinker.stop_drag()
+                self.assertEqual([entry.get() for entry in shrinker.entries[0]], ["0", "30", "0"])
             finally:
                 app.root.destroy()

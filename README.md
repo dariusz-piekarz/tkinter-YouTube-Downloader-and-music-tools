@@ -1,6 +1,6 @@
 # YouTube Downloader and Music Tools
 
-A desktop Tkinter app with three tools: download YouTube videos as MP3 or MP4, trim MP3/MP4 files, and edit MP3 metadata and cover art.
+A desktop Tkinter app with three tools: download YouTube videos as MP3 or MP4, trim MP3/MP4 files with an audio waveform preview, and edit MP3 metadata and cover art.
 
 Use the Language/Język menu to switch between Polish and English at any time. Polish is the initial language, and the choice is saved per Windows user.
 
@@ -48,5 +48,4 @@ The output is `Desktop\YTDownloader\YTDownloader.exe`. Distribute the entire `YT
 
 - Add a progress bar and a cancel button for downloads and conversions.
 - Support batch downloads and playlist selection.
-- Add waveform preview for choosing trim points.
 - Allow metadata editing for MP4/M4A as well as MP3.

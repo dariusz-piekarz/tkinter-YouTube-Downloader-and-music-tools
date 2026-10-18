@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "YTDownloader_v2"))
 from Config import Config
 from downloader_core import download_media
 from fields_editor_core import edit_fields, load_metadata
-from shrink_core import media_duration, parse_time, trim_media
+from shrink_core import media_duration, parse_time, trim_media, waveform_image
 
 
 class CoreTests(unittest.TestCase):
@@ -93,6 +93,7 @@ class CoreTests(unittest.TestCase):
             destination = Path(directory) / "output.mp3"
             subprocess.run(["ffmpeg", "-y", "-v", "error", "-f", "lavfi", "-i",
                             "sine=frequency=440:duration=2", str(source)], check=True)
+            self.assertTrue(waveform_image(source, "ffmpeg").startswith(b"\x89PNG\r\n\x1a\n"))
             trim_media(source, destination, 0.25, 1.25, "ffmpeg")
             self.assertTrue(destination.is_file())
             self.assertAlmostEqual(media_duration(destination, "ffmpeg"), 1, delta=0.1)

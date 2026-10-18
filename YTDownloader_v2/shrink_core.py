@@ -22,6 +22,20 @@ def media_duration(path: str | Path, ffmpeg: str) -> float:
     return float(json.loads(result.stdout)["format"]["duration"])
 
 
+def waveform_image(path: str | Path, ffmpeg: str, width: int = 1200, height: int = 160) -> bytes:
+    """Render the first audio track as a PNG for the trim preview."""
+    filter_graph = (
+        f"[0:a:0]aformat=channel_layouts=mono,"
+        f"showwavespic=s={width}x{height}:colors=0x38bdf8[wave]"
+    )
+    result = subprocess.run(
+        [ffmpeg, "-v", "error", "-i", str(path), "-filter_complex", filter_graph,
+         "-map", "[wave]", "-frames:v", "1", "-f", "image2pipe", "-c:v", "png", "pipe:1"],
+        check=True, capture_output=True,
+    )
+    return result.stdout
+
+
 def trim_media(source: str | Path, destination: str | Path, start: float, end: float, ffmpeg: str) -> Path:
     source, destination = Path(source), Path(destination)
     if source.suffix.lower() not in {".mp3", ".mp4"} or destination.suffix.lower() != source.suffix.lower():
