@@ -1,9 +1,12 @@
 from pathlib import Path
+from typing import Callable
 
 from yt_dlp import YoutubeDL
 
 
-def download_media(url: str, destination: str | Path, media_format: str, ffmpeg: str, bitrate: str = "192k") -> Path:
+def download_media(url: str, destination: str | Path, media_format: str, ffmpeg: str,
+                   bitrate: str = "192k",
+                   progress: Callable[[str, float | None], None] | None = None) -> Path:
     """Download a single video to the file selected by the user."""
     if not url.strip():
         raise ValueError("Enter a video URL.")
@@ -21,6 +24,22 @@ def download_media(url: str, destination: str | Path, media_format: str, ffmpeg:
         "noprogress": True,
         "overwrites": True,
     }
+    if progress is not None:
+        def download_hook(data):
+            if data.get("status") == "downloading":
+                total = data.get("total_bytes") or data.get("total_bytes_estimate")
+                downloaded = data.get("downloaded_bytes", 0)
+                percent = min(100.0, max(0.0, downloaded * 100 / total)) if total else None
+                progress("downloading", percent)
+            elif data.get("status") == "finished":
+                progress("processing", None)
+
+        def postprocessor_hook(data):
+            if data.get("status") == "started":
+                progress("processing", None)
+
+        options["progress_hooks"] = [download_hook]
+        options["postprocessor_hooks"] = [postprocessor_hook]
     if media_format == "mp3":
         options.update({
             "format": "bestaudio/best",

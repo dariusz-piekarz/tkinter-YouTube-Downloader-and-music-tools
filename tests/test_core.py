@@ -50,6 +50,7 @@ class CoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             target = Path(directory) / "custom.mp3"
             recorded = {}
+            updates = []
 
             class FakeDownloader:
                 def __init__(self, options):
@@ -63,12 +64,21 @@ class CoreTests(unittest.TestCase):
 
                 def download(self, urls):
                     self.urls = urls
+                    recorded["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 25,
+                                                     "total_bytes": 100})
+                    recorded["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 50,
+                                                     "total_bytes_estimate": 100})
+                    recorded["progress_hooks"][0]({"status": "finished"})
+                    recorded["postprocessor_hooks"][0]({"status": "started"})
                     target.write_bytes(b"test")
 
             with patch("downloader_core.YoutubeDL", FakeDownloader):
-                self.assertEqual(download_media("https://example.com/video", target, "mp3", "ffmpeg"), target)
+                self.assertEqual(download_media("https://example.com/video", target, "mp3", "ffmpeg",
+                                                progress=lambda stage, percent: updates.append((stage, percent))), target)
             self.assertEqual(recorded["outtmpl"], str(target.with_suffix("")) + ".%(ext)s")
             self.assertEqual(recorded["postprocessors"][0]["preferredcodec"], "mp3")
+            self.assertEqual(updates, [("downloading", 25), ("downloading", 50),
+                                       ("processing", None), ("processing", None)])
 
     def test_trim_rejects_same_file(self):
         with tempfile.TemporaryDirectory() as directory:
