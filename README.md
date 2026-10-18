@@ -19,6 +19,7 @@ uv run python YTDownloader_v2/main.py
 ```
 
 If `uv` is installed but not in `PATH`, use `$env:USERPROFILE\.local\bin\uv.exe` instead.
+The repository includes VS Code settings that select `.venv\Scripts\python.exe` and a `YTDownloader` launch configuration. If plain `python` opens the Microsoft Store prompt or reports that Python was not found, use `uv run python` or `.\.venv\Scripts\python.exe` from the repository root.
 
 The settings file is `YTDownloader_v2/config.yaml`. Set the download directory, default image, MP3 bitrate, or FFmpeg executable there. The default download directory is `~/Downloads`; if it does not exist, the app uses your home directory.
 

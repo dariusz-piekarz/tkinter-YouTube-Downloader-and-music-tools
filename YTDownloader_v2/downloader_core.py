@@ -41,3 +41,17 @@ def download_media(url: str, destination: str | Path, media_format: str, ffmpeg:
     if not destination.is_file():
         raise RuntimeError("The download finished without creating the selected file.")
     return destination
+
+
+def get_title(url: str, ffmpeg: str) -> str:
+    """Get the title of a video."""
+    if not url.strip():
+        raise ValueError("Enter a video URL.")
+    options = {
+        "ffmpeg_location": ffmpeg,
+        "quiet": True,
+        "noprogress": True,
+    }
+    with YoutubeDL(options) as downloader:
+        info = downloader.extract_info(url.strip(), download=False)
+    return info.get("title", "unknown_title")

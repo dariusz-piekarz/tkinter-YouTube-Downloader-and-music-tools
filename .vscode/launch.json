@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "YTDownloader",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}\\YTDownloader_v2\\main.py",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ]
+}

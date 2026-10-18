@@ -5,7 +5,7 @@ from tkinter.filedialog import asksaveasfilename
 from tkinter.ttk import Combobox
 
 from Config import Config
-from downloader_core import download_media
+from downloader_core import download_media, get_title
 from menu import RightClicker
 
 
@@ -23,7 +23,11 @@ class Downloader(Frame):
         self.url.grid(row=1, column=1, sticky="ew")
         self.url.bind("<Button-3>", lambda event: RightClicker(event, self.language))
         self.media_format = StringVar(value="mp3")
-        Combobox(self, textvariable=self.media_format, values=("mp3", "mp4"), state="readonly", width=5).grid(row=1, column=2, padx=12)
+        Combobox(self,
+                 textvariable=self.media_format, 
+                 values=("mp3", "mp4"),
+                 state="readonly", width=5
+                 ).grid(row=1, column=2, padx=12)
         self.download_button = Button(self, command=self.action)
         self.download_button.grid(row=2, column=1, pady=15)
         self.downloading = False
@@ -42,6 +46,7 @@ class Downloader(Frame):
             return
         media_format = self.media_format.get()
         filename = asksaveasfilename(
+            initialfile=get_title(url, self.config_data.ffmpeg) + f".{media_format}",
             initialdir=self.config_data.default_path,
             defaultextension=f".{media_format}",
             filetypes=[(media_format.upper(), f"*.{media_format}")],
