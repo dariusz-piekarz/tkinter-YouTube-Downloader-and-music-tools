@@ -1,4 +1,6 @@
+from dataclasses import dataclass
 from pathlib import Path
+import re
 from threading import Event
 from typing import Callable
 
@@ -7,6 +9,66 @@ from yt_dlp import YoutubeDL
 
 class DownloadCancelled(Exception):
     """The user requested that the current download stop."""
+
+
+@dataclass(frozen=True)
+class DownloadItem:
+    url: str
+    title: str
+
+
+def expand_urls(urls: list[str], ffmpeg: str, cancel: Event | None = None) -> list[DownloadItem]:
+    """Resolve individual links and playlists into an ordered download queue."""
+    items = []
+    options = {
+        "ffmpeg_location": ffmpeg,
+        "extract_flat": "in_playlist",
+        "noplaylist": False,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    with YoutubeDL(options) as downloader:
+        for url in urls:
+            if cancel is not None and cancel.is_set():
+                raise DownloadCancelled()
+            info = downloader.extract_info(url, download=False)
+            if cancel is not None and cancel.is_set():
+                raise DownloadCancelled()
+            if not info:
+                continue
+            entries = (info.get("entries") or []) if info.get("_type") == "playlist" else [info]
+            for entry in entries:
+                if cancel is not None and cancel.is_set():
+                    raise DownloadCancelled()
+                if not entry:
+                    continue
+                item_url = entry.get("webpage_url") or entry.get("url") or entry.get("id")
+                if not item_url:
+                    continue
+                if entry.get("ie_key") == "Youtube" and "://" not in item_url:
+                    item_url = f"https://www.youtube.com/watch?v={item_url}"
+                items.append(DownloadItem(item_url, entry.get("title") or "video"))
+    if not items:
+        raise ValueError("No downloadable videos found.")
+    return items
+
+
+def unique_destination(directory: str | Path, title: str, media_format: str,
+                       reserved: set[Path] | None = None) -> Path:
+    """Choose a Windows-safe filename without replacing an existing download."""
+    name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", title).strip().rstrip(" .")[:150].rstrip(" .") or "video"
+    if name.split(".")[0].upper() in {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                                      *(f"LPT{i}" for i in range(1, 10))}:
+        name = f"_{name}"
+    folder = Path(directory)
+    candidate = folder / f"{name}.{media_format}"
+    number = 2
+    while candidate.exists() or (reserved is not None and candidate in reserved):
+        candidate = folder / f"{name} ({number}).{media_format}"
+        number += 1
+    if reserved is not None:
+        reserved.add(candidate)
+    return candidate
 
 
 def download_media(url: str, destination: str | Path, media_format: str, ffmpeg: str,

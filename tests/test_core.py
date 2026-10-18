@@ -10,7 +10,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "YTDownloader_v2"))
 
 from Config import Config
-from downloader_core import DownloadCancelled, download_media
+from downloader_core import DownloadCancelled, download_media, expand_urls, unique_destination
 from fields_editor_core import edit_fields, load_metadata
 from shrink_core import media_duration, parse_time, trim_media, waveform_image
 
@@ -111,6 +111,43 @@ class CoreTests(unittest.TestCase):
                 with self.assertRaises(DownloadCancelled):
                     download_media("https://example.com/video", target, "mp3", "ffmpeg", cancel=cancel)
             self.assertFalse(target.exists())
+
+    def test_playlist_expansion_and_unique_filenames(self):
+        class FakeDownloader:
+            def __init__(self, options):
+                self.options = options
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def extract_info(self, url, download):
+                self.test_download = download
+                if url.endswith("playlist"):
+                    return {"_type": "playlist", "entries": [
+                        {"ie_key": "Youtube", "url": "abcdefghijk", "title": "Same: title"},
+                        None,
+                        {"ie_key": "Youtube", "url": "lmnopqrstuv", "title": "Same: title"},
+                    ]}
+                return {"webpage_url": url, "title": "Single"}
+
+        with patch("downloader_core.YoutubeDL", FakeDownloader):
+            items = expand_urls(["https://example.com/playlist", "https://example.com/single"], "ffmpeg")
+        self.assertEqual([item.url for item in items], [
+            "https://www.youtube.com/watch?v=abcdefghijk",
+            "https://www.youtube.com/watch?v=lmnopqrstuv",
+            "https://example.com/single",
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            first = Path(directory) / "Same_ title.mp3"
+            first.touch()
+            reserved = set()
+            second = unique_destination(directory, items[0].title, "mp3", reserved)
+            third = unique_destination(directory, items[1].title, "mp3", reserved)
+            self.assertEqual(second.name, "Same_ title (2).mp3")
+            self.assertEqual(third.name, "Same_ title (3).mp3")
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg is unavailable")
     def test_trim_real_mp3(self):
