@@ -45,7 +45,5 @@ uv run --with pyinstaller python -m PyInstaller --noconfirm --onedir --windowed 
 The output is `Desktop\YTDownloader\YTDownloader.exe`. Distribute the entire `YTDownloader` folder. It includes FFmpeg and FFprobe, so the target computer does not need Python, uv, or a separate FFmpeg installation. Edit `config.yaml` before building if you need different defaults.
 
 ## Possible next steps
-
-- Add progress and cancellation controls for trimming and conversion.
 - Support batch downloads and playlist selection.
-- Allow metadata editing for MP4/M4A as well as MP3.
+
