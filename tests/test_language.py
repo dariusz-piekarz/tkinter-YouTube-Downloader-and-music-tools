@@ -2,6 +2,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from threading import Event
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -59,6 +60,16 @@ class LanguageTests(unittest.TestCase):
                 downloader.reset_progress()
                 self.assertEqual(str(downloader.progress_bar.cget("mode")), "determinate")
                 self.assertEqual(downloader.progress_label.cget("text"), "")
+                self.assertEqual(str(downloader.cancel_button.cget("state")), "disabled")
+                downloader.downloading = True
+                downloader.cancel_event = Event()
+                downloader.download_button.config(state="disabled")
+                downloader.cancel_button.config(state="normal")
+                downloader.show_progress("title")
+                downloader.cancel_download()
+                self.assertEqual(downloader.progress_label.cget("text"), "Pobieranie anulowane.")
+                self.assertEqual(str(downloader.download_button.cget("state")), "normal")
+                self.assertEqual(str(downloader.cancel_button.cget("state")), "disabled")
                 app.show("shrink")
                 app.root.update()
                 shrinker = app.frames["shrink"]

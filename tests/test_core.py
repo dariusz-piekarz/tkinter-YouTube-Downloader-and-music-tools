@@ -3,13 +3,14 @@ import tempfile
 import unittest
 import shutil
 import subprocess
+from threading import Event
 from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "YTDownloader_v2"))
 
 from Config import Config
-from downloader_core import download_media
+from downloader_core import DownloadCancelled, download_media
 from fields_editor_core import edit_fields, load_metadata
 from shrink_core import media_duration, parse_time, trim_media, waveform_image
 
@@ -85,6 +86,31 @@ class CoreTests(unittest.TestCase):
             path = Path(directory) / "song.mp3"
             with self.assertRaises(ValueError):
                 trim_media(path, path, 0, 1, "ffmpeg")
+
+    def test_download_can_be_cancelled_from_progress_hook(self):
+        cancel = Event()
+
+        class FakeDownloader:
+            def __init__(self, options):
+                self.options = options
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_):
+                return False
+
+            def download(self, _urls):
+                self.options["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 1})
+                cancel.set()
+                self.options["progress_hooks"][0]({"status": "downloading", "downloaded_bytes": 2})
+
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "cancelled.mp3"
+            with patch("downloader_core.YoutubeDL", FakeDownloader):
+                with self.assertRaises(DownloadCancelled):
+                    download_media("https://example.com/video", target, "mp3", "ffmpeg", cancel=cancel)
+            self.assertFalse(target.exists())
 
     @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "FFmpeg is unavailable")
     def test_trim_real_mp3(self):

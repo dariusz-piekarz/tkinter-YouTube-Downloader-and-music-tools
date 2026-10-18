@@ -1,12 +1,18 @@
 from pathlib import Path
+from threading import Event
 from typing import Callable
 
 from yt_dlp import YoutubeDL
 
 
+class DownloadCancelled(Exception):
+    """The user requested that the current download stop."""
+
+
 def download_media(url: str, destination: str | Path, media_format: str, ffmpeg: str,
                    bitrate: str = "192k",
-                   progress: Callable[[str, float | None], None] | None = None) -> Path:
+                   progress: Callable[[str, float | None], None] | None = None,
+                   cancel: Event | None = None) -> Path:
     """Download a single video to the file selected by the user."""
     if not url.strip():
         raise ValueError("Enter a video URL.")
@@ -15,6 +21,8 @@ def download_media(url: str, destination: str | Path, media_format: str, ffmpeg:
     destination = Path(destination)
     if destination.suffix.lower() != f".{media_format}":
         raise ValueError(f"The output filename must end in .{media_format}.")
+    if cancel is not None and cancel.is_set():
+        raise DownloadCancelled()
 
     options = {
         "outtmpl": str(destination.with_suffix("")) + ".%(ext)s",
@@ -24,19 +32,26 @@ def download_media(url: str, destination: str | Path, media_format: str, ffmpeg:
         "noprogress": True,
         "overwrites": True,
     }
-    if progress is not None:
+    if progress is not None or cancel is not None:
         def download_hook(data):
+            if cancel is not None and cancel.is_set():
+                raise DownloadCancelled()
             if data.get("status") == "downloading":
                 total = data.get("total_bytes") or data.get("total_bytes_estimate")
                 downloaded = data.get("downloaded_bytes", 0)
                 percent = min(100.0, max(0.0, downloaded * 100 / total)) if total else None
-                progress("downloading", percent)
+                if progress is not None:
+                    progress("downloading", percent)
             elif data.get("status") == "finished":
-                progress("processing", None)
+                if progress is not None:
+                    progress("processing", None)
 
         def postprocessor_hook(data):
+            if cancel is not None and cancel.is_set():
+                raise DownloadCancelled()
             if data.get("status") == "started":
-                progress("processing", None)
+                if progress is not None:
+                    progress("processing", None)
 
         options["progress_hooks"] = [download_hook]
         options["postprocessor_hooks"] = [postprocessor_hook]
@@ -57,6 +72,8 @@ def download_media(url: str, destination: str | Path, media_format: str, ffmpeg:
         })
     with YoutubeDL(options) as downloader:
         downloader.download([url.strip()])
+    if cancel is not None and cancel.is_set():
+        raise DownloadCancelled()
     if not destination.is_file():
         raise RuntimeError("The download finished without creating the selected file.")
     return destination
