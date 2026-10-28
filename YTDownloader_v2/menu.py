@@ -25,7 +25,7 @@ class MenuBar(Menu):
         t = self.language.text
         self.entryconfig(0, label=t("menu"))
         self.entryconfig(1, label=t("language"))
-        for index, key in enumerate(("download_tab", "shrink_tab", "fields_tab")):
+        for index, key in enumerate(("download_tab", "shrink_tab", "fields_tab", "clipmaker_tab")):
             self.tools_menu.entryconfig(index, label=t(key))
         self.language_choice.set(self.language.code)
 

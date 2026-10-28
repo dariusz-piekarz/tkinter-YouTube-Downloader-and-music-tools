@@ -1,5 +1,6 @@
 from pathlib import Path
 import json
+import shutil
 import subprocess
 
 
@@ -34,6 +35,31 @@ def waveform_image(path: str | Path, ffmpeg: str, width: int = 1200, height: int
         check=True, capture_output=True,
     )
     return result.stdout
+
+
+def ffplay_executable(ffmpeg: str) -> str:
+    """Find FFplay beside the configured FFmpeg, then in PATH."""
+    ffmpeg_path = Path(ffmpeg)
+    name = "ffplay.exe" if ffmpeg_path.suffix.lower() == ".exe" else "ffplay"
+    sibling = ffmpeg_path.with_name(name)
+    if sibling.is_file():
+        return str(sibling)
+    player = shutil.which(name)
+    if player:
+        return player
+    raise FileNotFoundError("FFplay is unavailable.")
+
+
+def preview_media(source: str | Path, start: float, end: float, ffmpeg: str) -> subprocess.Popen:
+    """Play only the selected audio range without opening a video window."""
+    if start < 0 or end <= start:
+        raise ValueError("End time must be later than start time.")
+    return subprocess.Popen(
+        [ffplay_executable(ffmpeg), "-nodisp", "-autoexit", "-vn", "-loglevel", "error",
+         "-ss", str(start), "-t", str(end - start), "-i", str(source)],
+        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
 
 
 def trim_media(source: str | Path, destination: str | Path, start: float, end: float, ffmpeg: str) -> Path:

@@ -1,13 +1,17 @@
 [project]
 name = "tkinter-youtube-downloader-and-music-tools"
 version = "0.2.0"
-requires-python = ">=3.14"
+requires-python = ">=3.14,<3.15"
 dependencies = [
     "yt-dlp>=2026.8.19,<2026.10",
     "mutagen>=1.47",
     "pillow>=11",
     "pyyaml>=6",
+    "clip-maker",
 ]
 
 [tool.uv]
 package = false
+
+[tool.uv.sources]
+clip-maker = { git = "https://github.com/dariusz-piekarz/ClipMaker.git", rev = "c2c0f519454beb673efa153fdd38641e2bdff98f" }

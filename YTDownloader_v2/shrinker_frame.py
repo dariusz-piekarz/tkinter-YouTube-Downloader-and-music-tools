@@ -2,13 +2,14 @@ from io import BytesIO
 from pathlib import Path
 from queue import Empty, Queue
 from threading import Thread
+from time import monotonic
 from tkinter import Button, Canvas, Entry, Frame, Label, END, messagebox
 from tkinter.filedialog import askopenfilename, asksaveasfilename
 
 from PIL import Image, ImageTk
 
 from Config import Config
-from shrink_core import media_duration, parse_time, trim_media, waveform_image
+from shrink_core import media_duration, parse_time, preview_media, trim_media, waveform_image
 
 
 class Shrinker(Frame):
@@ -29,6 +30,12 @@ class Shrinker(Frame):
         self.preview_request = 0
         self.preview_polling = False
         self.drag_marker = None
+        self.playback_process = None
+        self.playback_after = None
+        self.playback_started_at = 0.0
+        self.playback_start = 0.0
+        self.playback_end = 0.0
+        self.playhead = None
         self.columnconfigure(1, weight=1)
         self.source_label = Label(self)
         self.source_label.grid(row=0, column=0, columnspan=2, pady=12)
@@ -57,10 +64,16 @@ class Shrinker(Frame):
         self.waveform_canvas.bind("<Button-1>", self.start_drag)
         self.waveform_canvas.bind("<B1-Motion>", self.drag)
         self.waveform_canvas.bind("<ButtonRelease-1>", self.stop_drag)
+        playback_frame = Frame(self)
+        playback_frame.grid(row=5, column=0, columnspan=2, pady=(8, 0))
+        self.play_button = Button(playback_frame, command=self.play_selection, state="disabled")
+        self.play_button.pack(side="left", padx=6)
+        self.stop_button = Button(playback_frame, command=self.stop_playback, state="disabled")
+        self.stop_button.pack(side="left", padx=6)
         self.waveform_label = Label(self)
-        self.waveform_label.grid(row=5, column=0, columnspan=2, pady=(4, 0))
+        self.waveform_label.grid(row=6, column=0, columnspan=2, pady=(4, 0))
         self.extract_button = Button(self, command=self.extract)
-        self.extract_button.grid(row=6, column=0, columnspan=2, pady=16)
+        self.extract_button.grid(row=7, column=0, columnspan=2, pady=12)
         self.set_language()
 
     def set_language(self):
@@ -79,6 +92,8 @@ class Shrinker(Frame):
         else:
             waveform_text = t("waveform_hint")
         self.waveform_label.config(text=waveform_text)
+        self.play_button.config(text=t("play_selection"))
+        self.stop_button.config(text=t("stop_preview"))
         self.extract_button.config(text=t("extract"))
 
     def draw_waveform(self, _event=None):
@@ -104,8 +119,12 @@ class Shrinker(Frame):
             canvas.create_rectangle(right, 0, width, height, fill="#0f172a", stipple="gray50", outline="")
             canvas.create_line(left, 0, left, height, fill="#22c55e", width=2)
             canvas.create_line(right, 0, right, height, fill="#ef4444", width=2)
+            if self.playhead is not None:
+                position = round(width * self.playhead / self.duration)
+                canvas.create_line(position, 0, position, height, fill="#facc15", width=2)
 
     def time_changed(self, _event=None):
+        self.stop_playback()
         if self.duration <= 0:
             return
         try:
@@ -135,6 +154,7 @@ class Shrinker(Frame):
     def drag(self, event):
         if self.drag_marker is None or self.duration <= 0:
             return
+        self.stop_playback()
         width = max(self.waveform_canvas.winfo_width(), 1)
         position = min(max(event.x / width, 0), 1) * self.duration
         start, end = self.selection
@@ -159,10 +179,12 @@ class Shrinker(Frame):
         except Exception as error:
             messagebox.showerror(self.language.text("open_failed"), self.language.error(error))
             return
+        self.stop_playback()
         self.source = Path(filename)
         self.duration = duration
         self.source_label.config(text=self.source.name)
         self.selection = (0.0, duration)
+        self.play_button.config(state="normal")
         self.set_entry_time(0, 0)
         self.set_entry_time(1, duration)
         self.waveform = None
@@ -211,6 +233,68 @@ class Shrinker(Frame):
         else:
             self.preview_polling = False
 
+    def play_selection(self):
+        if self.source is None:
+            return
+        try:
+            start, end = (parse_time(*(entry.get() for entry in group)) for group in self.entries)
+            if end <= start or end > self.duration + 0.01:
+                raise ValueError("Choose an end time after the start and within the file.")
+            end = min(end, self.duration)
+            self.stop_playback()
+            process = preview_media(self.source, start, end, self.config_data.ffmpeg)
+        except (OSError, ValueError) as error:
+            messagebox.showerror(self.language.text("preview_failed"), self.language.error(error))
+            return
+        self.selection = (start, end)
+        self.playback_process = process
+        self.playback_started_at = monotonic()
+        self.playback_start = start
+        self.playback_end = end
+        self.playhead = start
+        self.play_button.config(state="disabled")
+        self.stop_button.config(state="normal")
+        self.draw_waveform()
+        self.playback_after = self.after(100, lambda: self.poll_playback(process))
+
+    def poll_playback(self, process):
+        if self.playback_process is not process:
+            return
+        self.playback_after = None
+        result = process.poll()
+        if result is not None:
+            self.stop_playback()
+            if result != 0:
+                messagebox.showerror(self.language.text("preview_failed"),
+                                     self.language.text("preview_could_not_play"))
+            return
+        self.playhead = min(self.playback_end,
+                            self.playback_start + monotonic() - self.playback_started_at)
+        self.draw_waveform()
+        self.playback_after = self.after(100, lambda: self.poll_playback(process))
+
+    def stop_playback(self):
+        if self.playback_after is not None:
+            self.after_cancel(self.playback_after)
+            self.playback_after = None
+        process = self.playback_process
+        self.playback_process = None
+        if process is not None and process.poll() is None:
+            try:
+                process.terminate()
+            except OSError:
+                pass
+            else:
+                Thread(target=process.wait, daemon=True).start()
+        self.playhead = None
+        self.play_button.config(state="normal" if self.source is not None else "disabled")
+        self.stop_button.config(state="disabled")
+        self.draw_waveform()
+
+    def destroy(self):
+        self.stop_playback()
+        super().destroy()
+
     def extract(self):
         if self.source is None:
             messagebox.showerror(self.language.text("extract"), self.language.text("open_first"))
@@ -227,6 +311,7 @@ class Shrinker(Frame):
                                      filetypes=[(suffix.upper(), f"*{suffix}")])
         if not filename:
             return
+        self.stop_playback()
         self.extract_button.config(state="disabled")
 
         def worker():

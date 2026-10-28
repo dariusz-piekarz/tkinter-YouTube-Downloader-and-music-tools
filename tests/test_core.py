@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "YTDownloader_v2"))
 from Config import Config
 from downloader_core import DownloadCancelled, download_media, expand_urls, unique_destination
 from fields_editor_core import edit_fields, load_metadata
-from shrink_core import media_duration, parse_time, trim_media, waveform_image
+from shrink_core import ffplay_executable, media_duration, parse_time, preview_media, trim_media, waveform_image
 
 
 class CoreTests(unittest.TestCase):
@@ -34,6 +34,29 @@ class CoreTests(unittest.TestCase):
         for values in (("0", "60", "0"), ("0", "0", "1000"), ("", "0", "0")):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 parse_time(*values)
+
+    def test_preview_uses_ffplay_next_to_configured_ffmpeg_and_selected_range(self):
+        with tempfile.TemporaryDirectory() as directory:
+            ffmpeg = Path(directory) / "ffmpeg.exe"
+            ffplay = Path(directory) / "ffplay.exe"
+            ffplay.touch()
+            self.assertEqual(ffplay_executable(str(ffmpeg)), str(ffplay))
+            with patch("shrink_core.subprocess.Popen") as popen:
+                preview_media(Path(directory) / "song.mp3", 1.25, 3.75, str(ffmpeg))
+            command = popen.call_args.args[0]
+            self.assertEqual(command[0], str(ffplay))
+            self.assertEqual(command[command.index("-ss") + 1], "1.25")
+            self.assertEqual(command[command.index("-t") + 1], "2.5")
+            self.assertIn("-nodisp", command)
+            self.assertIn("-vn", command)
+            self.assertEqual(command[-1], str(Path(directory) / "song.mp3"))
+
+    def test_preview_reports_missing_ffplay(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("shrink_core.shutil.which", return_value=None):
+                with self.assertRaisesRegex(FileNotFoundError, "FFplay is unavailable"):
+                    preview_media(Path(directory) / "song.mp3", 0, 1,
+                                  str(Path(directory) / "ffmpeg.exe"))
 
     def test_metadata_round_trip_on_empty_mp3(self):
         from PIL import Image
